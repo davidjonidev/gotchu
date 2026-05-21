@@ -211,6 +211,26 @@ NG_INPUT=$(jq -n --arg dir "$(pwd)/no-gotchu" '{cwd:$dir,tool_name:"Bash",tool_i
 EXIT=$(echo "$NG_INPUT" | "$PLUGIN_ROOT/hooks/per-tool.sh" > /dev/null 2>&1; echo $?)
 assert "no gotchu dir → exit 0" "$EXIT" "0"
 
+# Case 6: non-object tool_response (string) → still appends, doesn't crash
+echo '{"emoji":"🐕","text":"watching","expires_at":0}' > pertool-test/.claude/gotchu/state.json
+: > pertool-test/.claude/gotchu/tool-log.jsonl
+WEIRD_INPUT=$(jq -n --arg dir "$(pwd)/pertool-test" '{
+  cwd: $dir,
+  tool_name: "Bash",
+  tool_input: {command: "false"},
+  tool_response: "exit 1: command failed"
+}')
+echo "$WEIRD_INPUT" | "$PLUGIN_ROOT/hooks/per-tool.sh" > /dev/null 2>&1
+LINES=$(wc -l < pertool-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
+assert "string tool_response → still appends" "$LINES" "1"
+
+# Case 7: missing tool_input/tool_response → still appends, doesn't crash
+: > pertool-test/.claude/gotchu/tool-log.jsonl
+SPARSE_INPUT=$(jq -n --arg dir "$(pwd)/pertool-test" '{cwd: $dir, tool_name: "Bash"}')
+echo "$SPARSE_INPUT" | "$PLUGIN_ROOT/hooks/per-tool.sh" > /dev/null 2>&1
+LINES=$(wc -l < pertool-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
+assert "missing input/response → still appends" "$LINES" "1"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]

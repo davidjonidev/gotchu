@@ -17,13 +17,20 @@ NOW=$(date +%s)
 TOOL=$(echo "$input" | jq -r '.tool_name // "unknown"')
 
 # Append a record of this tool call (the Stop hook reads these).
+# Pre-extract tool_input/tool_response with a null fallback so a missing key,
+# a malformed payload, or an unexpected shape (string/number/array) can't
+# crash the hook under set -euo pipefail.
+TI=$(echo "$input" | jq -c '.tool_input // null' 2>/dev/null || echo "null")
+TR=$(echo "$input" | jq -c '.tool_response // null' 2>/dev/null || echo "null")
+[ -n "$TI" ] || TI="null"
+[ -n "$TR" ] || TR="null"
 RECORD=$(jq -nc \
   --arg t "$TOOL" \
   --argjson ts "$NOW" \
-  --argjson ti "$(echo "$input" | jq -c '.tool_input // {}')" \
-  --argjson tr "$(echo "$input" | jq -c '.tool_response // {}')" \
-  '{tool:$t,ts:$ts,input:$ti,response:$tr}')
-echo "$RECORD" >> "$STATE_DIR/tool-log.jsonl"
+  --argjson ti "$TI" \
+  --argjson tr "$TR" \
+  '{tool:$t,ts:$ts,input:$ti,response:$tr}' 2>/dev/null) || RECORD=""
+[ -n "$RECORD" ] && echo "$RECORD" >> "$STATE_DIR/tool-log.jsonl"
 
 # Derive statusLine flavor from accumulated count + elapsed seconds.
 COUNT=$(wc -l < "$STATE_DIR/tool-log.jsonl" | tr -d ' ')
