@@ -97,6 +97,23 @@ jq -n '{emoji:"😴",text:"hushed",expires_at:0,sticky:"hushed"}' > line-test/.c
 RESULT=$(LINE_INPUT | "$PLUGIN_ROOT/scripts/gotchu-line.sh" 2>/dev/null)
 assert "sticky hushed → renders hushed" "$RESULT" "😴 hushed"
 
+# --- Task 5: scripts/gotchu-statusline.sh ---
+echo ""
+echo "[gotchu-statusline.sh]"
+SL_INPUT() {
+  jq -n --arg dir "$(pwd)/line-test" '{
+    model: {display_name: "Sonnet 4.6"},
+    workspace: {current_dir: $dir},
+    cost: {total_cost_usd: 1.23, total_duration_ms: 65000},
+    context_window: {used_percentage: 42}
+  }'
+}
+mkdir -p line-test/.claude/gotchu
+echo '{"emoji":"🐕","text":"watching","expires_at":0}' > line-test/.claude/gotchu/state.json
+RESULT=$(SL_INPUT | "$PLUGIN_ROOT/scripts/gotchu-statusline.sh" 2>/dev/null)
+assert_contains "renders model"   "$RESULT" "Sonnet 4.6"
+assert_contains "renders pet line" "$RESULT" "🐕 watching"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]
