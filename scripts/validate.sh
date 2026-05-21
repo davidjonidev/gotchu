@@ -155,6 +155,18 @@ PROMPT_INPUT "just some normal coding question" | "$PLUGIN_ROOT/hooks/on-prompt.
   { echo "  ✓ no @gotchu → no intent"; PASS=$((PASS+1)); } || \
   { echo "  ✗ no @gotchu produced an intent file"; FAIL=$((FAIL+1)); }
 
+# --- Task 7: prompts/stop.md ---
+echo ""
+echo "[prompts/stop.md]"
+assert_file "stop.md exists" "$PLUGIN_ROOT/prompts/stop.md"
+STOP=$(cat "$PLUGIN_ROOT/prompts/stop.md" 2>/dev/null || echo "")
+assert_contains "mentions lens menu"           "$STOP" "pattern"
+assert_contains "default to silence"           "$STOP" "DEFAULT TO SILENCE"
+assert_contains "reads tool-log.jsonl"         "$STOP" "tool-log.jsonl"
+assert_contains "short-mode template"          "$STOP" "🐕 gotchu — N lesson"
+assert_contains "detail-mode template"         "$STOP" "WHAT IT IS"
+assert_contains "systemMessage in final resp"  "$STOP" "systemMessage"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]
