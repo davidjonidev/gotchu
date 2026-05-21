@@ -2,6 +2,8 @@
 
 > A Haiku-powered shoulder-tutor for Claude Code. Watches your main agent and teaches you what just happened at end of turn. **Zero latency between tool calls. Runs on your Claude Code subscription.**
 
+> 🤖 **Heads up:** gotchu was built collaboratively with Claude Code. The whole plugin — hooks, scripts, prompts — was implemented by an AI agent following a human-written spec and plan. It's tested (32 self-test assertions) and reviewed, but please give the code a once-over before installing into a repo you care about, and treat v0.1.0 as early-days.
+
 **The problem:** AI coding agents do the work, devs lose skill. Code lands without you understanding why it landed that way. Patterns, framework idioms, design decisions — invisible.
 
 **What gotchu does:** logs every Bash/Write/Edit your main agent makes (instant, shell-only), shows live counters in your statusLine, and at end of turn surfaces 1–3 short lessons about the most interesting things that happened.
