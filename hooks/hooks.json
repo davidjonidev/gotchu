@@ -25,10 +25,9 @@
       {
         "hooks": [
           {
-            "type": "agent",
-            "model": "claude-haiku-4-5-20251001",
-            "timeout": 20,
-            "prompt": "Read ${CLAUDE_PLUGIN_ROOT}/prompts/stop.md and follow those instructions exactly. The hook payload is: $ARGUMENTS"
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh",
+            "timeout": 30
           }
         ]
       }

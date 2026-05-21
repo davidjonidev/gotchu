@@ -162,10 +162,10 @@ assert_file "stop.md exists" "$PLUGIN_ROOT/prompts/stop.md"
 STOP=$(cat "$PLUGIN_ROOT/prompts/stop.md" 2>/dev/null || echo "")
 assert_contains "mentions lens menu"           "$STOP" "pattern"
 assert_contains "default to silence"           "$STOP" "DEFAULT TO SILENCE"
-assert_contains "reads tool-log.jsonl"         "$STOP" "tool-log.jsonl"
+assert_contains "reads tool log"               "$STOP" "Tool log this turn"
 assert_contains "short-mode template"          "$STOP" "🐕 gotchu — N lesson"
 assert_contains "detail-mode template"         "$STOP" "WHAT IT IS"
-assert_contains "systemMessage in final resp"  "$STOP" "systemMessage"
+assert_contains "plain-text output contract"   "$STOP" "Print plain text only"
 
 # --- Task 8: hooks/per-tool.sh ---
 echo ""
@@ -230,6 +230,89 @@ SPARSE_INPUT=$(jq -n --arg dir "$(pwd)/pertool-test" '{cwd: $dir, tool_name: "Ba
 echo "$SPARSE_INPUT" | "$PLUGIN_ROOT/hooks/per-tool.sh" > /dev/null 2>&1
 LINES=$(wc -l < pertool-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
 assert "missing input/response → still appends" "$LINES" "1"
+
+# --- hooks/stop.sh ---
+echo ""
+echo "[stop.sh]"
+
+mkdir -p stop-test/.claude/gotchu
+
+# Fake claude binary that echoes a canned debrief and ignores prompt.
+mkdir -p stop-test/bin
+cat > stop-test/bin/claude <<'CFAKE'
+#!/usr/bin/env bash
+# Read prompt from args, ignore. Emit a canned debrief unless GOTCHU_FAKE_EMPTY=1.
+if [ "${GOTCHU_FAKE_EMPTY:-0}" = "1" ]; then
+  exit 0
+fi
+cat <<DEBRIEF
+🐕 gotchu — 1 lesson
+
+1. Test lesson
+   Canned output from fake claude binary.
+
+@gotchu 1  ·  @gotchu more  ·  @gotchu hush
+DEBRIEF
+CFAKE
+chmod +x stop-test/bin/claude
+FAKE_CLAUDE="$(pwd)/stop-test/bin/claude"
+
+STOP_INPUT() {
+  jq -n --arg dir "$(pwd)/stop-test" '{cwd:$dir}'
+}
+
+# Case 1: empty tool log, no intent → silent {}, state reset.
+: > stop-test/.claude/gotchu/tool-log.jsonl
+echo '{"emoji":"📖","text":"stale","expires_at":0}' > stop-test/.claude/gotchu/state.json
+OUT=$(STOP_INPUT | GOTCHU_CLAUDE_BIN="$FAKE_CLAUDE" "$PLUGIN_ROOT/hooks/stop.sh")
+assert "empty log → silent {}" "$OUT" "{}"
+STATE=$(cat stop-test/.claude/gotchu/state.json)
+assert_contains "empty log → state reset to watching" "$STATE" "watching"
+
+# Case 2: non-empty log → systemMessage JSON with debrief text.
+echo '{"tool":"Bash","ts":1,"input":{},"response":{}}' > stop-test/.claude/gotchu/tool-log.jsonl
+OUT=$(STOP_INPUT | GOTCHU_CLAUDE_BIN="$FAKE_CLAUDE" "$PLUGIN_ROOT/hooks/stop.sh")
+MSG=$(echo "$OUT" | jq -r '.systemMessage // empty')
+assert_contains "non-empty log → debrief in systemMessage" "$MSG" "Test lesson"
+LINES=$(wc -l < stop-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
+assert "log cleared after stop" "$LINES" "0"
+
+# Case 3: sticky=hushed → silent regardless of log.
+echo '{"tool":"Bash","ts":1,"input":{},"response":{}}' > stop-test/.claude/gotchu/tool-log.jsonl
+echo '{"emoji":"😴","text":"hushed","expires_at":0,"sticky":"hushed"}' > stop-test/.claude/gotchu/state.json
+OUT=$(STOP_INPUT | GOTCHU_CLAUDE_BIN="$FAKE_CLAUDE" "$PLUGIN_ROOT/hooks/stop.sh")
+assert "hushed → silent {}" "$OUT" "{}"
+
+# Case 4: intent=what + empty log → calls haiku.
+: > stop-test/.claude/gotchu/tool-log.jsonl
+echo '{"emoji":"🐕","text":"watching","expires_at":0}' > stop-test/.claude/gotchu/state.json
+jq -n '{command:"what"}' > stop-test/.claude/gotchu/intent.json
+OUT=$(STOP_INPUT | GOTCHU_CLAUDE_BIN="$FAKE_CLAUDE" "$PLUGIN_ROOT/hooks/stop.sh")
+MSG=$(echo "$OUT" | jq -r '.systemMessage // empty')
+assert_contains "intent=what forces debrief" "$MSG" "Test lesson"
+[ ! -f stop-test/.claude/gotchu/intent.json ] && \
+  { echo "  ✓ intent.json consumed"; PASS=$((PASS+1)); } || \
+  { echo "  ✗ intent.json not removed"; FAIL=$((FAIL+1)); }
+
+# Case 5: claude returns empty → silent {}, state still reset.
+echo '{"tool":"Bash","ts":1,"input":{},"response":{}}' > stop-test/.claude/gotchu/tool-log.jsonl
+echo '{"emoji":"📖","text":"stale","expires_at":0}' > stop-test/.claude/gotchu/state.json
+OUT=$(STOP_INPUT | GOTCHU_CLAUDE_BIN="$FAKE_CLAUDE" GOTCHU_FAKE_EMPTY=1 "$PLUGIN_ROOT/hooks/stop.sh")
+assert "empty haiku output → silent {}" "$OUT" "{}"
+LINES=$(wc -l < stop-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
+assert "state still reset on empty debrief" "$LINES" "0"
+
+# Case 6: missing claude binary → silent, state still reset.
+echo '{"tool":"Bash","ts":1,"input":{},"response":{}}' > stop-test/.claude/gotchu/tool-log.jsonl
+OUT=$(STOP_INPUT | GOTCHU_CLAUDE_BIN="/nonexistent/claude" "$PLUGIN_ROOT/hooks/stop.sh")
+assert "missing claude → silent {}" "$OUT" "{}"
+LINES=$(wc -l < stop-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
+assert "missing claude → state reset" "$LINES" "0"
+
+# Case 7: no gotchu dir → silent no-op.
+mkdir -p stop-test-empty
+OUT=$(jq -n --arg dir "$(pwd)/stop-test-empty" '{cwd:$dir}' | "$PLUGIN_ROOT/hooks/stop.sh")
+assert "no gotchu dir → silent {}" "$OUT" "{}"
 
 # --- wire.sh ---
 echo ""
