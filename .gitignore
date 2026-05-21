@@ -1,0 +1,10 @@
+.DS_Store
+*.log
+.env
+.env.local
+
+# Local Claude Code per-user settings
+.claude/settings.local.json
+
+# Per-repo gotchu state when developing in-repo
+.claude/gotchu/

@@ -1,0 +1,10 @@
+{
+  "name": "gotchu",
+  "version": "0.1.0",
+  "description": "A Haiku-powered shoulder-tutor for Claude Code. Watches your main agent, teaches you what just happened at end of turn, stays silent when nothing's worth saying. Zero latency between tool calls. Runs on your Claude Code subscription.",
+  "author": {
+    "name": "David Joni",
+    "url": "https://davidjoni.dev"
+  },
+  "license": "MIT"
+}

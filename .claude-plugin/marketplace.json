@@ -1,0 +1,19 @@
+{
+  "name": "gotchu",
+  "displayName": "gotchu",
+  "description": "Haiku-powered shoulder-tutor for Claude Code",
+  "owner": {
+    "name": "David Joni",
+    "url": "https://davidjoni.dev"
+  },
+  "plugins": [
+    {
+      "name": "gotchu",
+      "source": "./",
+      "description": "Watches your main agent and teaches you what just happened at end of turn. Subscription-billed. Zero latency.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": ["teaching", "watcher", "haiku", "pet"]
+    }
+  ]
+}
