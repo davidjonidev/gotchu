@@ -114,6 +114,47 @@ RESULT=$(SL_INPUT | "$PLUGIN_ROOT/scripts/gotchu-statusline.sh" 2>/dev/null)
 assert_contains "renders model"   "$RESULT" "Sonnet 4.6"
 assert_contains "renders pet line" "$RESULT" "🐕 watching"
 
+# --- Task 6: hooks/on-prompt.sh ---
+echo ""
+echo "[on-prompt.sh]"
+
+mkdir -p prompt-test/.claude/gotchu
+echo '{"emoji":"🐕","text":"watching","expires_at":0}' > prompt-test/.claude/gotchu/state.json
+
+PROMPT_INPUT() {
+  jq -n --arg dir "$(pwd)/prompt-test" --arg p "$1" '{cwd: $dir, prompt: $p}'
+}
+
+# Case 1: hush → sticky=hushed
+PROMPT_INPUT "@gotchu hush please" | "$PLUGIN_ROOT/hooks/on-prompt.sh" > /dev/null 2>&1
+STATE=$(cat prompt-test/.claude/gotchu/state.json)
+assert_contains "hush sets sticky" "$STATE" "hushed"
+
+# Case 2: wake → sticky removed
+PROMPT_INPUT "@gotchu wake up" | "$PLUGIN_ROOT/hooks/on-prompt.sh" > /dev/null 2>&1
+STATE=$(cat prompt-test/.claude/gotchu/state.json)
+HAS=$(echo "$STATE" | jq -r 'has("sticky")')
+assert "wake removes sticky" "$HAS" "false"
+
+# Case 3: more → intent.json
+PROMPT_INPUT "@gotchu more" | "$PLUGIN_ROOT/hooks/on-prompt.sh" > /dev/null 2>&1
+assert_file "intent.json on more" "prompt-test/.claude/gotchu/intent.json"
+INTENT=$(jq -r '.command' prompt-test/.claude/gotchu/intent.json)
+assert "intent is 'more'" "$INTENT" "more"
+rm -f prompt-test/.claude/gotchu/intent.json
+
+# Case 4: numeric intent
+PROMPT_INPUT "tell me what @gotchu 2 means" | "$PLUGIN_ROOT/hooks/on-prompt.sh" > /dev/null 2>&1
+INTENT=$(jq -r '.command' prompt-test/.claude/gotchu/intent.json)
+assert "numeric intent captured" "$INTENT" "2"
+rm -f prompt-test/.claude/gotchu/intent.json
+
+# Case 5: no @gotchu → no intent
+PROMPT_INPUT "just some normal coding question" | "$PLUGIN_ROOT/hooks/on-prompt.sh" > /dev/null 2>&1
+[ ! -f prompt-test/.claude/gotchu/intent.json ] && \
+  { echo "  ✓ no @gotchu → no intent"; PASS=$((PASS+1)); } || \
+  { echo "  ✗ no @gotchu produced an intent file"; FAIL=$((FAIL+1)); }
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]
