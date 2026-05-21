@@ -49,6 +49,18 @@ assert "harness smoke test" "ok" "ok"
 
 # === Component tests appended below as each task lands. ===
 
+# --- Task 3: scripts/init.sh ---
+echo ""
+echo "[init.sh]"
+mkdir -p init-test
+(cd init-test && "$PLUGIN_ROOT/scripts/init.sh" > /tmp/init-out 2>&1)
+assert_file "creates state.json"    "init-test/.claude/gotchu/state.json"
+assert_file "creates tool-log.jsonl" "init-test/.claude/gotchu/tool-log.jsonl"
+INIT_OUT=$(cat /tmp/init-out)
+assert_contains "prints statusLine guidance" "$INIT_OUT" "statusLine"
+STATE=$(cat init-test/.claude/gotchu/state.json)
+assert_contains "state.json has watching text" "$STATE" "watching"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]
