@@ -11,7 +11,7 @@
       "name": "gotchu",
       "source": "./",
       "description": "Watches your main agent and teaches you what just happened at end of turn. Subscription-billed. Zero latency.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "productivity",
       "tags": ["teaching", "watcher", "haiku", "pet"]
     }

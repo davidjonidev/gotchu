@@ -231,6 +231,53 @@ echo "$SPARSE_INPUT" | "$PLUGIN_ROOT/hooks/per-tool.sh" > /dev/null 2>&1
 LINES=$(wc -l < pertool-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
 assert "missing input/response → still appends" "$LINES" "1"
 
+# --- wire.sh ---
+echo ""
+echo "[wire.sh]"
+
+mkdir -p wire-test
+WIRE_SETTINGS="$(pwd)/wire-test/settings.json"
+
+# Scenario A: existing custom statusLine script → append marked block + set refreshInterval
+cat > wire-test/my-statusline.sh <<'SLEOF'
+#!/usr/bin/env bash
+input=$(cat)
+echo "[my custom line]"
+SLEOF
+chmod +x wire-test/my-statusline.sh
+jq -n --arg cmd "bash $(pwd)/wire-test/my-statusline.sh" \
+  '{statusLine: {type:"command", command:$cmd}}' > "$WIRE_SETTINGS"
+GOTCHU_SETTINGS="$WIRE_SETTINGS" "$PLUGIN_ROOT/scripts/wire.sh" --yes > /tmp/wire-out 2>&1
+SCRIPT_AFTER=$(cat wire-test/my-statusline.sh)
+assert_contains "wire-A: marker added"           "$SCRIPT_AFTER" "gotchu-wired-begin"
+assert_contains "wire-A: line script referenced" "$SCRIPT_AFTER" "gotchu-line.sh"
+REFRESH=$(jq -r '.statusLine.refreshInterval' "$WIRE_SETTINGS")
+assert "wire-A: refreshInterval=3" "$REFRESH" "3"
+
+# Idempotent — running again must not double-append.
+GOTCHU_SETTINGS="$WIRE_SETTINGS" "$PLUGIN_ROOT/scripts/wire.sh" --yes > /tmp/wire-out2 2>&1
+COUNT=$(grep -c "gotchu-wired-begin" wire-test/my-statusline.sh)
+assert "wire-A: idempotent (1 block)" "$COUNT" "1"
+
+# --unwire removes the block.
+GOTCHU_SETTINGS="$WIRE_SETTINGS" "$PLUGIN_ROOT/scripts/wire.sh" --unwire --yes > /dev/null 2>&1
+COUNT=$(grep -c "gotchu-wired-begin" wire-test/my-statusline.sh || true)
+assert "wire-A: --unwire removes block" "$COUNT" "0"
+
+# Scenario B: no existing statusLine → point settings at wrapper
+echo '{}' > "$WIRE_SETTINGS"
+GOTCHU_SETTINGS="$WIRE_SETTINGS" "$PLUGIN_ROOT/scripts/wire.sh" --yes > /tmp/wire-out 2>&1
+CMD=$(jq -r '.statusLine.command' "$WIRE_SETTINGS")
+assert_contains "wire-B: points at wrapper" "$CMD" "gotchu-statusline.sh"
+REFRESH=$(jq -r '.statusLine.refreshInterval' "$WIRE_SETTINGS")
+assert "wire-B: refreshInterval=3" "$REFRESH" "3"
+
+# --dry-run changes nothing
+echo '{}' > "$WIRE_SETTINGS"
+GOTCHU_SETTINGS="$WIRE_SETTINGS" "$PLUGIN_ROOT/scripts/wire.sh" --dry-run > /tmp/wire-out 2>&1
+HAS=$(jq -r 'has("statusLine")' "$WIRE_SETTINGS")
+assert "wire: --dry-run no-op" "$HAS" "false"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]

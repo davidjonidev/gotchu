@@ -39,6 +39,10 @@ This creates `.claude/gotchu/` for state and prints the statusLine snippet.
 
 ## Setting up the statusLine
 
+**Easy mode:** run `/gotchu wire`. It detects your current setup, prints a plan, and applies it on y/N confirm. Pass `--yes` to skip the prompt, `--dry-run` to preview only, `--unwire` to reverse it.
+
+Prefer to do it by hand? Two options:
+
 **Option A** — you already have a custom statusLine. Add ONE line to it:
 
 ```bash

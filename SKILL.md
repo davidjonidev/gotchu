@@ -9,7 +9,7 @@ A small Haiku-powered companion for Claude Code. PostToolUse logs each tool call
 
 ## Activation
 
-This plugin runs automatically via hooks once installed. No slash command to "invoke" mid-turn. One-time setup: `/gotchu init` creates `.claude/gotchu/` in the current repo.
+This plugin runs automatically via hooks once installed. No slash command to "invoke" mid-turn. One-time setup: `/gotchu init` creates `.claude/gotchu/` in the current repo, then `/gotchu wire` auto-patches the user's statusLine (or they can wire it by hand — see README).
 
 ## Commands the user might type
 

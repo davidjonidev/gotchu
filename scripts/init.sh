@@ -9,12 +9,17 @@ cat > .claude/gotchu/state.json <<'JSON'
 {"emoji":"🐕","text":"watching","expires_at":0}
 JSON
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-(plugin root)}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 cat <<EOM
 gotchu initialized in $(pwd)/.claude/gotchu/
 
-To wire the pet into your statusLine, ONE of:
+To wire the pet into your statusLine, run:
+
+    /gotchu wire
+
+That auto-detects your current setup, shows a plan, and applies it on
+y/N confirmation. Or do it manually:
 
   Option A — paste this 1 line at the bottom of your existing statusLine
   script (it consumes the same stdin JSON Claude Code already gave you):
