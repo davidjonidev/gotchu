@@ -167,6 +167,50 @@ assert_contains "short-mode template"          "$STOP" "🐕 gotchu — N lesson
 assert_contains "detail-mode template"         "$STOP" "WHAT IT IS"
 assert_contains "systemMessage in final resp"  "$STOP" "systemMessage"
 
+# --- Task 8: hooks/per-tool.sh ---
+echo ""
+echo "[per-tool.sh]"
+
+mkdir -p pertool-test/.claude/gotchu
+echo '{"emoji":"🐕","text":"watching","expires_at":0}' > pertool-test/.claude/gotchu/state.json
+: > pertool-test/.claude/gotchu/tool-log.jsonl
+
+PT_INPUT() {
+  jq -n --arg dir "$(pwd)/pertool-test" '{
+    cwd: $dir,
+    tool_name: "Bash",
+    tool_input: {command: "git status"},
+    tool_response: {success: true}
+  }'
+}
+
+# Case 1: appends one line to tool-log.jsonl
+PT_INPUT | "$PLUGIN_ROOT/hooks/per-tool.sh" > /dev/null 2>&1
+LINES=$(wc -l < pertool-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
+assert "appends 1 line" "$LINES" "1"
+
+# Case 2: another call appends another line
+PT_INPUT | "$PLUGIN_ROOT/hooks/per-tool.sh" > /dev/null 2>&1
+LINES=$(wc -l < pertool-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
+assert "appends 2 lines after 2 calls" "$LINES" "2"
+
+# Case 3: state.json updated with tool count
+STATE=$(cat pertool-test/.claude/gotchu/state.json)
+assert_contains "state mentions watching" "$STATE" "watching"
+
+# Case 4: hushed → no append
+echo '{"emoji":"😴","text":"hushed","expires_at":0,"sticky":"hushed"}' > pertool-test/.claude/gotchu/state.json
+: > pertool-test/.claude/gotchu/tool-log.jsonl
+PT_INPUT | "$PLUGIN_ROOT/hooks/per-tool.sh" > /dev/null 2>&1
+LINES=$(wc -l < pertool-test/.claude/gotchu/tool-log.jsonl | tr -d ' ')
+assert "hushed → no append" "$LINES" "0"
+
+# Case 5: outside gotchu repo → no-op
+mkdir -p no-gotchu
+NG_INPUT=$(jq -n --arg dir "$(pwd)/no-gotchu" '{cwd:$dir,tool_name:"Bash",tool_input:{},tool_response:{}}')
+EXIT=$(echo "$NG_INPUT" | "$PLUGIN_ROOT/hooks/per-tool.sh" > /dev/null 2>&1; echo $?)
+assert "no gotchu dir → exit 0" "$EXIT" "0"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ]
