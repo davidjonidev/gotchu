@@ -43,7 +43,12 @@ elif [ "$COUNT" -le 10 ]; then EMOJI="👀"; TEXT="paying attention · $COUNT ca
 else                            EMOJI="📖"; TEXT="lots to teach about · $COUNT calls · ${ELAPSED}s"
 fi
 
-EXPIRES=$((NOW + 30))
+# TTL spans the longest realistic gap between consecutive PostToolUse hooks
+# within a single turn (text-generation, thinking, reading tool output).
+# 30s was too short — measured avg gap is ~20s and peaks well above 30s.
+# Stop hook clears state at end of turn, so this is only a safety net for
+# crashed/abandoned turns where Stop didn't run.
+EXPIRES=$((NOW + 180))
 jq -n --arg e "$EMOJI" --arg t "$TEXT" --argjson ex "$EXPIRES" \
   '{emoji:$e,text:$t,expires_at:$ex}' > "$STATE_DIR/state.json.tmp"
 mv "$STATE_DIR/state.json.tmp" "$STATE_DIR/state.json"
